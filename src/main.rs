@@ -16,54 +16,49 @@ impl WordFrequency {
 fn main() {
     println!("starting");
     let biggest = Arc::new(Mutex::new(""));
-    let biggest_copy_1 = Arc::clone(&biggest);
-    let thread1 = thread::spawn(move || {
-        let mut biggest_copy = biggest_copy_1.lock().unwrap();
-        let words: Vec<&str> = DUMMY_TEXT.split(" ").collect();
-        for word in words {
-            if word.len() > biggest_copy.len() {
-                *biggest_copy = word
-            }
-        }
-    });
-
     let average = Arc::new(Mutex::new(0));
-    let average_copy = Arc::clone(&average);
-    let thread2 = thread::spawn(move || {
-        let mut average_copy = average_copy.lock().unwrap();
-        let words: Vec<&str> = DUMMY_TEXT.split(" ").collect();
-        for word in &words {
-            *average_copy += word.len();
-        }
-        *average_copy = *average_copy / words.len();
-    });
-
     let most_common = Arc::new(Mutex::new(WordFrequency::new(String::from(""), 0)));
-    let most_common_copy = Arc::clone(&most_common);
-    let thread3 = thread::spawn(move || {
-        let mut map = HashMap::new();
-        let mut most_common_copy = most_common_copy.lock().unwrap();
-        let words: Vec<&str> = DUMMY_TEXT.split(" ").collect();
-        for word in words {
+    let words: Vec<&str> = DUMMY_TEXT.split(' ').collect();
+    let number_of_words = words.len();
+    for word in words {
+        let average_copy = Arc::clone(&average);
+        let biggest_copy_1 = Arc::clone(&biggest);
+        let most_common_copy = Arc::clone(&most_common);
+        let thread1 = thread::spawn(move || {
+            let mut biggest_copy = biggest_copy_1.lock().unwrap();
+            if word.len() > biggest_copy.len() {
+                *biggest_copy = word;
+            }
+        });
+
+        let thread2 = thread::spawn(move || {
+            let mut average_copy = average_copy.lock().unwrap();
+            *average_copy += word.len();
+        });
+
+        let thread3 = thread::spawn(move || {
+            let mut map = HashMap::new();
+            let mut most_common_copy = most_common_copy.lock().unwrap();
             let entry = map.entry(word).or_insert(0);
             *entry += 1;
-        }
-        for (key, value) in map {
-            if value > most_common_copy.frequency {
-                *most_common_copy = WordFrequency::new(key.to_string(), value);
+            for (key, value) in map {
+                if value > most_common_copy.frequency {
+                    *most_common_copy = WordFrequency::new(key.to_string(), value);
+                }
             }
-        }
-    });
+        });
 
-    thread1.join().unwrap();
-    thread2.join().unwrap();
-    thread3.join().unwrap();
+        thread1.join().unwrap();
+        thread2.join().unwrap();
+        thread3.join().unwrap();
+    }
 
     let most_common = most_common.lock().unwrap();
+    let average = *average.lock().unwrap() / number_of_words;
     println!(
         "Biggest is {}, average is {}, the most common word is {}",
         *biggest.lock().unwrap(),
-        *average.lock().unwrap(),
+        average,
         &*most_common.word
     );
 
